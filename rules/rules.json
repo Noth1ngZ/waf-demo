@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1001,
+    "name": "detect_cmd_param",
+    "target": "args_name",
+    "pattern": "cmd",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URL 参数名中是否包含 cmd，常见于命令执行类 WebShell 请求"
+  },
+  {
+    "id": 1002,
+    "name": "detect_exec_param",
+    "target": "args_name",
+    "pattern": "exec|system|shell",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URL 参数名中是否包含 exec、system、shell 等危险关键字"
+  },
+  {
+    "id": 1003,
+    "name": "detect_linux_command",
+    "target": "args_value",
+    "pattern": "whoami|uname|id|ifconfig|ipconfig|pwd|ls",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含常见系统命令"
+  },
+  {
+    "id": 1004,
+    "name": "detect_sensitive_file",
+    "target": "args_value",
+    "pattern": "/etc/passwd|/etc/shadow|/bin/bash|/root",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 Linux 敏感文件路径"
+  },
+  {
+    "id": 1005,
+    "name": "detect_webshell_path",
+    "target": "uri",
+    "pattern": "shell.php|cmd.php|backdoor.php|webshell.php",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否包含常见 WebShell 文件名"
+  },
+  {
+    "id": 1006,
+    "name": "detect_webshell_user_agent",
+    "target": "user_agent",
+    "pattern": "AntSword|Behinder|Godzilla|冰蝎|哥斯拉",
+    "action": "block",
+    "level": "medium",
+    "description": "检测 User-Agent 中是否包含常见 WebShell 管理工具特征"
+  }
+]
