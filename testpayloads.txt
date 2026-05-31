@@ -1,4 +1,21 @@
-http://127.0.0.1:8080/
-http://127.0.0.1:8080/?id=1
-http://127.0.0.1:8080/?cmd=whoami
-http://127.0.0.1:8080/?cmd=id
+正常请求：
+curl -i "http://127.0.0.1:8080/"
+
+参数名检测：
+curl -i "http://127.0.0.1:8080/?cmd=whoami"
+curl -i "http://127.0.0.1:8080/?exec=id"
+curl -i "http://127.0.0.1:8080/?shell=1"
+
+参数值检测：
+curl -i "http://127.0.0.1:8080/?a=whoami"
+curl -i "http://127.0.0.1:8080/?x=uname"
+curl -i "http://127.0.0.1:8080/?file=/etc/passwd"
+
+URI检测：
+curl -i "http://127.0.0.1:8080/shell.php"
+curl -i "http://127.0.0.1:8080/backdoor.php"
+
+User-Agent检测：
+curl -i -A "AntSword" "http://127.0.0.1:8080/"
+curl -i -A "Behinder" "http://127.0.0.1:8080/"
+curl -i -A "Godzilla" "http://127.0.0.1:8080/"

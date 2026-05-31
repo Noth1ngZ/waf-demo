@@ -1,6 +1,7 @@
 local cjson = require "cjson"
 
 local rule_file = "/root/waf-demo/rules/rules.json"
+local waf_log_file = "/root/waf-demo/logs/waf.log"
 
 local function read_file(path)
     local file = io.open(path, "r")
@@ -29,7 +30,33 @@ local function load_rules()
     return rules
 end
 
+local function write_waf_log(rule)
+    local log_data = {
+        time = ngx.localtime(),
+        ip = ngx.var.remote_addr or "",
+        method = ngx.req.get_method() or "",
+        uri = ngx.var.request_uri or "",
+        user_agent = ngx.var.http_user_agent or "",
+        rule_id = rule.id,
+        rule_name = rule.name,
+        level = rule.level,
+        action = rule.action or "block"
+    }
+
+    local line = cjson.encode(log_data)
+
+    local file = io.open(waf_log_file, "a")
+    if file then
+        file:write(line .. "\n")
+        file:close()
+    else
+        ngx.log(ngx.ERR, "WAF ERROR: cannot write waf log file: ", waf_log_file)
+    end
+end
+
 local function block_request(rule)
+    write_waf_log(rule)
+
     ngx.log(
         ngx.ERR,
         "WAF BLOCK: rule_id=", rule.id,
