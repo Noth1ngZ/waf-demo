@@ -1,21 +1,97 @@
 正常请求：
 curl -i "http://127.0.0.1:8080/"
 
-参数名检测：
+一、命令执行类参数名检测：
 curl -i "http://127.0.0.1:8080/?cmd=whoami"
 curl -i "http://127.0.0.1:8080/?exec=id"
 curl -i "http://127.0.0.1:8080/?shell=1"
+curl -i "http://127.0.0.1:8080/?command=uname"
+curl -i "http://127.0.0.1:8080/?run=pwd"
+curl -i "http://127.0.0.1:8080/?code=whoami"
+curl -i "http://127.0.0.1:8080/?do_cmd=whoami"
+curl -i "http://127.0.0.1:8080/?action_exec=whoami"
 
-参数值检测：
+二、命令执行类参数值检测：
 curl -i "http://127.0.0.1:8080/?a=whoami"
 curl -i "http://127.0.0.1:8080/?x=uname"
+curl -i "http://127.0.0.1:8080/?p=pwd"
+curl -i "http://127.0.0.1:8080/?n=ifconfig"
+curl -i "http://127.0.0.1:8080/?n=ipconfig"
+curl -i "http://127.0.0.1:8080/?n=netstat"
+curl -i "http://127.0.0.1:8080/?p=ps"
+curl -i "http://127.0.0.1:8080/?s=bash"
+curl -i "http://127.0.0.1:8080/?s=sh"
+curl -i "http://127.0.0.1:8080/?d=curl"
+curl -i "http://127.0.0.1:8080/?d=wget"
+curl -i "http://127.0.0.1:8080/?c=nc"
+curl -i "http://127.0.0.1:8080/?c=netcat"
+
+三、Linux 敏感文件访问检测：
 curl -i "http://127.0.0.1:8080/?file=/etc/passwd"
+curl -i "http://127.0.0.1:8080/?file=/etc/shadow"
+curl -i "http://127.0.0.1:8080/?file=/proc/self/environ"
+curl -i "http://127.0.0.1:8080/?file=/root/.ssh/id_rsa"
+curl -i "http://127.0.0.1:8080/?file=authorized_keys"
+curl -i "http://127.0.0.1:8080/?file=id_rsa"
+curl -i "http://127.0.0.1:8080/?file=/var/log/nginx/access.log"
+curl -i "http://127.0.0.1:8080/?file=/etc/hosts"
+curl -i "http://127.0.0.1:8080//etc/passwd"
+curl -i "http://127.0.0.1:8080//root/.ssh/authorized_keys"
 
-URI检测：
+四、Windows 命令执行检测：
+curl -i "http://127.0.0.1:8080/?c=cmd.exe"
+curl -i "http://127.0.0.1:8080/?c=powershell"
+curl -i "http://127.0.0.1:8080/?c=whoami.exe"
+curl -i "http://127.0.0.1:8080/?c=net%20user"
+curl -i "http://127.0.0.1:8080/?c=tasklist"
+curl -i "http://127.0.0.1:8080/?c=certutil"
+curl -i "http://127.0.0.1:8080/?c=bitsadmin"
+curl -i "http://127.0.0.1:8080/cmd.exe"
+
+五、危险 PHP 函数检测：
+curl -i "http://127.0.0.1:8080/?p=eval(phpinfo())"
+curl -i "http://127.0.0.1:8080/?p=assert(1)"
+curl -i "http://127.0.0.1:8080/?p=system(whoami)"
+curl -i "http://127.0.0.1:8080/?p=exec(id)"
+curl -i "http://127.0.0.1:8080/?p=shell_exec(id)"
+curl -i "http://127.0.0.1:8080/?p=passthru(id)"
+curl -i "http://127.0.0.1:8080/?p=popen(id)"
+curl -i "http://127.0.0.1:8080/?p=proc_open(id)"
+curl -i "http://127.0.0.1:8080/?p=base64_decode(SGVsbG8=)"
+curl -i "http://127.0.0.1:8080/?p=gzuncompress(data)"
+curl -i "http://127.0.0.1:8080/?p=preg_replace(/test/e,cmd,body)"
+
+六、WebShell 文件路径检测：
 curl -i "http://127.0.0.1:8080/shell.php"
+curl -i "http://127.0.0.1:8080/cmd.php"
 curl -i "http://127.0.0.1:8080/backdoor.php"
+curl -i "http://127.0.0.1:8080/webshell.php"
+curl -i "http://127.0.0.1:8080/pass.php"
+curl -i "http://127.0.0.1:8080/1.php"
+curl -i "http://127.0.0.1:8080/a.php"
+curl -i "http://127.0.0.1:8080/x.php"
+curl -i "http://127.0.0.1:8080/up.php"
 
-User-Agent检测：
+七、可疑上传目录脚本后缀检测：
+curl -i "http://127.0.0.1:8080/uploads/shell.php"
+curl -i "http://127.0.0.1:8080/upload/test.phtml"
+curl -i "http://127.0.0.1:8080/images/avatar.phar"
+curl -i "http://127.0.0.1:8080/static/cache.php5"
+curl -i "http://127.0.0.1:8080/uploads/demo.php7"
+
+八、WebShell 管理工具 User-Agent 检测：
 curl -i -A "AntSword" "http://127.0.0.1:8080/"
 curl -i -A "Behinder" "http://127.0.0.1:8080/"
 curl -i -A "Godzilla" "http://127.0.0.1:8080/"
+curl -i -A "冰蝎" "http://127.0.0.1:8080/"
+curl -i -A "哥斯拉" "http://127.0.0.1:8080/"
+curl -i -A "蚁剑" "http://127.0.0.1:8080/"
+
+九、常见 WebShell 参数值特征检测：
+curl -i "http://127.0.0.1:8080/?payload=pass=rebeyond"
+curl -i "http://127.0.0.1:8080/?payload=password=123456"
+curl -i "http://127.0.0.1:8080/?payload=rebeyond"
+curl -i "http://127.0.0.1:8080/?payload=eval(base64_decode(data))"
+curl -i "http://127.0.0.1:8080/?payload=assert(base64_decode(data))"
+curl -i "http://127.0.0.1:8080/?payload=Runtime.getRuntime().exec(cmd)"
+curl -i "http://127.0.0.1:8080/?payload=ProcessBuilder"

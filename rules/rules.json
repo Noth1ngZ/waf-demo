@@ -52,5 +52,239 @@
     "action": "block",
     "level": "medium",
     "description": "检测 User-Agent 中是否包含常见 WebShell 管理工具特征"
+  },
+  {
+    "id": 1007,
+    "name": "detect_command_param_name",
+    "target": "args_name",
+    "pattern": "^(command|run|code)$",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URL 参数名是否为 command、run、code，常见于远程命令执行入口"
+  },
+  {
+    "id": 1008,
+    "name": "detect_script_action_param_name",
+    "target": "args_name",
+    "pattern": "^(do|action)_(cmd|exec|shell)$|^(cmd|exec|shell)_(do|action)$",
+    "action": "block",
+    "level": "medium",
+    "description": "检测 URL 参数名中 do、action 与 cmd、exec、shell 组合出现的 WebShell 控制动作特征"
+  },
+  {
+    "id": 1009,
+    "name": "detect_command_output_values",
+    "target": "args_value",
+    "pattern": "\\b(whoami|uname|pwd|ifconfig|ipconfig|netstat)\\b",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含常见命令执行回显探测命令"
+  },
+  {
+    "id": 1010,
+    "name": "detect_process_command_values",
+    "target": "args_value",
+    "pattern": "\\b(ps|bash|sh|curl|wget|nc|netcat)\\b",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含进程查看、Shell 调用或下载执行相关命令"
+  },
+  {
+    "id": 1011,
+    "name": "detect_linux_proc_environ",
+    "target": "args_value",
+    "pattern": "/proc/self/environ",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否尝试读取 /proc/self/environ 环境变量信息"
+  },
+  {
+    "id": 1012,
+    "name": "detect_linux_ssh_sensitive_files",
+    "target": "args_value",
+    "pattern": "/root/\\.ssh|authorized_keys|id_rsa",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 root SSH 目录、authorized_keys 或私钥文件名"
+  },
+  {
+    "id": 1013,
+    "name": "detect_linux_log_and_hosts_files",
+    "target": "args_value",
+    "pattern": "/var/log|/etc/hosts",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否尝试访问 Linux 日志目录或 hosts 文件"
+  },
+  {
+    "id": 1014,
+    "name": "detect_sensitive_file_in_uri",
+    "target": "uri",
+    "pattern": "/etc/passwd|/etc/shadow|/proc/self/environ|/etc/hosts",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否直接包含 Linux 敏感文件路径"
+  },
+  {
+    "id": 1015,
+    "name": "detect_ssh_file_in_uri",
+    "target": "uri",
+    "pattern": "/root/\\.ssh|authorized_keys|id_rsa",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否包含 SSH 密钥或授权文件相关路径"
+  },
+  {
+    "id": 1016,
+    "name": "detect_windows_shell_values",
+    "target": "args_value",
+    "pattern": "cmd\\.exe|powershell|whoami\\.exe",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 Windows Shell 或身份探测命令"
+  },
+  {
+    "id": 1017,
+    "name": "detect_windows_admin_commands",
+    "target": "args_value",
+    "pattern": "net user|tasklist|certutil|bitsadmin",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 Windows 用户枚举、进程查看或下载相关命令"
+  },
+  {
+    "id": 1018,
+    "name": "detect_windows_shell_in_uri",
+    "target": "uri",
+    "pattern": "cmd\\.exe|powershell|whoami\\.exe|certutil|bitsadmin",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否包含 Windows 命令执行工具特征"
+  },
+  {
+    "id": 1019,
+    "name": "detect_php_eval_assert_values",
+    "target": "args_value",
+    "pattern": "\\b(eval|assert)\\s*\\(",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 eval 或 assert 函数调用特征"
+  },
+  {
+    "id": 1020,
+    "name": "detect_php_exec_values",
+    "target": "args_value",
+    "pattern": "\\b(system|exec|shell_exec|passthru)\\s*\\(",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 PHP 命令执行函数调用"
+  },
+  {
+    "id": 1021,
+    "name": "detect_php_process_values",
+    "target": "args_value",
+    "pattern": "\\b(popen|proc_open)\\s*\\(",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 PHP 进程创建函数调用"
+  },
+  {
+    "id": 1022,
+    "name": "detect_php_decoder_values",
+    "target": "args_value",
+    "pattern": "\\b(base64_decode|gzuncompress)\\s*\\(",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 PHP 编码解码或压缩解压函数调用"
+  },
+  {
+    "id": 1023,
+    "name": "detect_php_preg_replace_eval_values",
+    "target": "args_value",
+    "pattern": "preg_replace\\s*\\(.*?/e",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 preg_replace /e 执行模式特征"
+  },
+  {
+    "id": 1024,
+    "name": "detect_webshell_common_php_files",
+    "target": "uri",
+    "pattern": "(shell|cmd|backdoor|webshell|pass)\\.php",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否包含常见命名的 PHP WebShell 文件"
+  },
+  {
+    "id": 1025,
+    "name": "detect_webshell_short_php_files",
+    "target": "uri",
+    "pattern": "/(1|a|x|up)\\.php($|\\?)",
+    "action": "block",
+    "level": "high",
+    "description": "检测 URI 中是否包含常见短文件名 WebShell 脚本"
+  },
+  {
+    "id": 1026,
+    "name": "detect_upload_dir_php_script",
+    "target": "uri",
+    "pattern": "/uploads?/[^?]*\\.(php|phtml|phar|php5|php7)($|\\?)",
+    "action": "block",
+    "level": "high",
+    "description": "检测 upload 或 uploads 目录下出现 PHP 系脚本后缀"
+  },
+  {
+    "id": 1027,
+    "name": "detect_static_image_dir_php_script",
+    "target": "uri",
+    "pattern": "/(images|static)/[^?]*\\.(php|phtml|phar|php5|php7)($|\\?)",
+    "action": "block",
+    "level": "high",
+    "description": "检测 images 或 static 静态资源目录下出现 PHP 系脚本后缀"
+  },
+  {
+    "id": 1028,
+    "name": "detect_webshell_cn_user_agent",
+    "target": "user_agent",
+    "pattern": "蚁剑|冰蝎|哥斯拉",
+    "action": "block",
+    "level": "high",
+    "description": "检测 User-Agent 中是否包含中文 WebShell 管理工具名称"
+  },
+  {
+    "id": 1029,
+    "name": "detect_webshell_tool_user_agent",
+    "target": "user_agent",
+    "pattern": "AntSword|Behinder|Godzilla|Rebeyond",
+    "action": "block",
+    "level": "high",
+    "description": "检测 User-Agent 中是否包含常见 WebShell 管理工具英文特征"
+  },
+  {
+    "id": 1030,
+    "name": "detect_webshell_password_assignment",
+    "target": "args_value",
+    "pattern": "(pass|password)=",
+    "action": "block",
+    "level": "medium",
+    "description": "检测参数值中是否包含 WebShell 常见密码字段赋值片段"
+  },
+  {
+    "id": 1031,
+    "name": "detect_rebeyond_value",
+    "target": "args_value",
+    "pattern": "rebeyond",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含冰蝎 WebShell 相关 rebeyond 特征"
+  },
+  {
+    "id": 1032,
+    "name": "detect_java_webshell_runtime_values",
+    "target": "args_value",
+    "pattern": "Runtime\\.getRuntime|ProcessBuilder",
+    "action": "block",
+    "level": "high",
+    "description": "检测参数值中是否包含 Java WebShell 常见命令执行类调用"
   }
 ]
