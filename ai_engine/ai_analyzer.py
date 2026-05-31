@@ -6,7 +6,13 @@ from openai import OpenAI
 SUSPICIOUS_LOG = "/root/waf-demo/logs/suspicious.log"
 OUTPUT_FILE = "/root/waf-demo/ai_engine/ai_suggestions.json"
 
-client = OpenAI()
+# 阿里云百炼 OpenAI 兼容接口
+# 使用前需要设置环境变量：
+# export DASHSCOPE_API_KEY="你的百炼API_KEY"
+client = OpenAI(
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
 
 
 def load_suspicious_logs(limit=10):
@@ -38,7 +44,7 @@ def build_prompt(log):
 请分析下面这条可疑 HTTP 请求日志，并生成一条候选 WAF 规则建议。
 
 要求：
-1. 只输出 JSON,不要输出解释性文字。
+1. 只输出 JSON，不要输出解释性文字。
 2. JSON 必须包含：
    - risk_type
    - confidence
@@ -58,18 +64,23 @@ def build_prompt(log):
    - uri
    - user_agent
 6. action 固定为 "block"。
-7. level 只能是 "low"、"medium"、"high"。
+7. level 只能是：
+   - low
+   - medium
+   - high
 8. 不要生成过于宽泛、容易误报的规则。
 9. 不要直接把 select、admin、api 作为强拦截规则。
-10. 如果不适合生成规则,suggest_rule 设置为 null,auto_apply 设置为 false。
+10. 如果不适合生成规则，suggest_rule 设置为 null，auto_apply 设置为 false。
 11. 规则要适配当前 WAF 的 rules.json 格式。
 12. pattern 使用 Lua ngx.re.find 可兼容的正则，不要使用过于复杂的语法。
+13. 如果只是普通业务参数名，例如 file、url、data，不要直接生成强拦截规则。
+14. 优先生成低误报规则，例如明确的命令执行、WebShell、敏感文件、SQL 时间盲注特征。
 
 可疑日志如下：
 
 {json.dumps(log, ensure_ascii=False, indent=2)}
 
-请输出 JSON,例如：
+请严格输出 JSON，例如：
 
 {{
   "risk_type": "possible_sql_injection",
@@ -90,7 +101,7 @@ def build_prompt(log):
 def parse_ai_json(text):
     text = text.strip()
 
-    # 兼容 AI 返回 ```json ... ``` 的情况
+    # 兼容模型返回 ```json ... ``` 的情况
     if text.startswith("```"):
         text = text.strip("`").strip()
         if text.startswith("json"):
@@ -102,12 +113,18 @@ def parse_ai_json(text):
 def analyze_with_ai(log):
     prompt = build_prompt(log)
 
-    response = client.responses.create(
-        model="gpt-5.5",
-        input=prompt
+    response = client.chat.completions.create(
+        model="qwen-plus",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=0.2
     )
 
-    raw_text = response.output_text
+    raw_text = response.choices[0].message.content
 
     try:
         result = parse_ai_json(raw_text)
@@ -139,6 +156,11 @@ def save_suggestions(suggestions):
 
 
 def main():
+    if not os.getenv("DASHSCOPE_API_KEY"):
+        print("[!] 未设置 DASHSCOPE_API_KEY")
+        print('示例：export DASHSCOPE_API_KEY="你的百炼API_KEY"')
+        return
+
     logs = load_suspicious_logs(limit=10)
 
     if not logs:
