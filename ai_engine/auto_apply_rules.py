@@ -11,11 +11,9 @@ REJECTED_FILE = "/root/waf-demo/ai_engine/rejected_rules.json"
 
 BACKUP_DIR = "/root/waf-demo/rules/backups"
 
-
-ALLOW_TARGETS = {"args_name", "args_value", "uri", "user_agent"}
+ALLOW_TARGETS = {"args_name", "args_value", "uri", "user_agent", "post_body"}
 ALLOW_LEVELS = {"low", "medium", "high"}
 
-# 这些 pattern 太宽泛，容易误报，不允许自动加入
 DANGEROUS_BROAD_PATTERNS = [
     "file",
     "data",
@@ -25,7 +23,9 @@ DANGEROUS_BROAD_PATTERNS = [
     "admin",
     "api",
     "test",
-    "upload"
+    "upload",
+    "pass",
+    "password"
 ]
 
 
@@ -81,11 +81,9 @@ def is_pattern_too_broad(pattern):
         if clean_pattern == broad:
             return True
 
-    # 规则太短，误报风险高
     if len(clean_pattern) <= 3:
         return True
 
-    # 只有简单单词，没有任何特殊攻击特征，也比较危险
     if clean_pattern.isalpha() and "|" not in clean_pattern and "\\" not in clean_pattern:
         return True
 
@@ -102,7 +100,7 @@ def build_rule(suggestion, rule_id):
     pattern = suggest_rule.get("pattern")
     action = suggest_rule.get("action", "block")
     level = suggest_rule.get("level", "medium")
-    description = suggest_rule.get("description", "AI 分析可疑日志后生成的规则")
+    description = suggest_rule.get("description", suggestion.get("reason", "AI 分析可疑日志后生成的规则"))
 
     if target not in ALLOW_TARGETS:
         return None, "invalid_target"
@@ -138,7 +136,6 @@ def should_auto_apply(suggestion, rule):
     confidence = float(suggestion.get("confidence", 0))
     auto_apply = suggestion.get("auto_apply", False)
 
-    # 必须同时满足：AI 允许自动加入 + 置信度足够高
     if auto_apply is True and confidence >= 0.85:
         return True
 

@@ -6,9 +6,6 @@ from openai import OpenAI
 SUSPICIOUS_LOG = "/root/waf-demo/logs/suspicious.log"
 OUTPUT_FILE = "/root/waf-demo/ai_engine/ai_suggestions.json"
 
-# 阿里云百炼 OpenAI 兼容接口
-# 使用前需要设置环境变量：
-# export DASHSCOPE_API_KEY="你的百炼API_KEY"
 client = OpenAI(
     api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -63,6 +60,7 @@ def build_prompt(log):
    - args_value
    - uri
    - user_agent
+   - post_body
 6. action 固定为 "block"。
 7. level 只能是：
    - low
@@ -74,7 +72,9 @@ def build_prompt(log):
 11. 规则要适配当前 WAF 的 rules.json 格式。
 12. pattern 使用 Lua ngx.re.find 可兼容的正则，不要使用过于复杂的语法。
 13. 如果只是普通业务参数名，例如 file、url、data，不要直接生成强拦截规则。
-14. 优先生成低误报规则，例如明确的命令执行、WebShell、敏感文件、SQL 时间盲注特征。
+14. 优先生成低误报规则，例如明确的命令执行、WebShell、敏感文件、SQL 时间盲注、POST Body 中的 WebShell 通信特征。
+15. 如果可疑原因与 POST 请求体相关，例如 post_body_command_keyword、post_body_sensitive_file、post_body_possible_encoded_payload、post_body_php_dangerous_function、post_body_webshell_keyword，优先考虑生成 target 为 post_body 的规则。
+16. 如果只是长 Base64 或疑似编码内容，除非置信度很高，否则 auto_apply 应为 false。
 
 可疑日志如下：
 
@@ -83,15 +83,15 @@ def build_prompt(log):
 请严格输出 JSON，例如：
 
 {{
-  "risk_type": "possible_sql_injection",
-  "confidence": 0.82,
-  "reason": "参数中出现疑似 SQL 注入特征，但需要避免误报。",
+  "risk_type": "possible_webshell_post_payload",
+  "confidence": 0.86,
+  "reason": "POST 请求体中出现 WebShell 管理工具常见参数和编码载荷特征，疑似 WebShell 通信。",
   "suggest_rule": {{
-    "target": "args_value",
-    "pattern": "sleep\\\\(|benchmark\\\\(|or\\\\s+1=1",
+    "target": "post_body",
+    "pattern": "pass=|password=|payload=|rebeyond|Godzilla|Behinder|AntSword",
     "action": "block",
     "level": "medium",
-    "description": "检测较明确的 SQL 注入时间盲注或恒真条件特征"
+    "description": "检测 POST 请求体中的常见 WebShell 管理工具参数或标识"
   }},
   "auto_apply": false
 }}
@@ -101,7 +101,6 @@ def build_prompt(log):
 def parse_ai_json(text):
     text = text.strip()
 
-    # 兼容模型返回 ```json ... ``` 的情况
     if text.startswith("```"):
         text = text.strip("`").strip()
         if text.startswith("json"):
@@ -143,6 +142,7 @@ def analyze_with_ai(log):
     result["source_risk_score"] = log.get("risk_score", 0)
     result["source_ip"] = log.get("ip", "")
     result["source_user_agent"] = log.get("user_agent", "")
+    result["source_post_body_length"] = log.get("post_body_length", 0)
     result["analyze_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return result

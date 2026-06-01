@@ -95,3 +95,18 @@ curl -i "http://127.0.0.1:8080/?payload=eval(base64_decode(data))"
 curl -i "http://127.0.0.1:8080/?payload=assert(base64_decode(data))"
 curl -i "http://127.0.0.1:8080/?payload=Runtime.getRuntime().exec(cmd)"
 curl -i "http://127.0.0.1:8080/?payload=ProcessBuilder"
+
+# POST Body 正常请求，应该放行
+curl -i -X POST "http://127.0.0.1:8080/" -d "name=hello"
+
+# POST Body 命令执行特征，应该拦截
+curl -i -X POST "http://127.0.0.1:8080/" -d "cmd=whoami"
+
+# POST Body 敏感文件读取，应该拦截
+curl -i -X POST "http://127.0.0.1:8080/" -d "file=/etc/passwd"
+
+# POST Body PHP 危险函数，应该拦截
+curl -i -X POST "http://127.0.0.1:8080/" -d "a=base64_decode(test)"
+
+# POST Body 疑似编码载荷，可能进入 suspicious.log
+curl -i -X POST "http://127.0.0.1:8080/" -d "data=Y21kPXdob2FtaQ1234567890ABCDEFGH=="

@@ -34,15 +34,16 @@ def build_rule_from_suggestion(suggestion, rule_id):
     if not suggest_rule:
         return None
 
-    allow_targets = {"args_name", "args_value", "uri", "user_agent"}
+    allow_targets = {"args_name", "args_value", "uri", "user_agent", "post_body"}
 
     target = suggest_rule.get("target")
     pattern = suggest_rule.get("pattern")
     action = suggest_rule.get("action", "block")
     level = suggest_rule.get("level", "medium")
+    description = suggest_rule.get("description", suggestion.get("reason", "AI 分析可疑日志后生成的规则建议"))
 
     if target not in allow_targets:
-        print(f"[-] 不支持的 target,跳过: {target}")
+        print(f"[-] 不支持的 target，跳过: {target}")
         return None
 
     if not pattern:
@@ -56,7 +57,7 @@ def build_rule_from_suggestion(suggestion, rule_id):
         "pattern": pattern,
         "action": action,
         "level": level,
-        "description": suggestion.get("explain", "AI 分析可疑日志后生成的规则建议")
+        "description": description
     }
 
     return rule
@@ -93,7 +94,7 @@ def main():
             print(f"[-] 规则已存在，跳过: {rule['pattern']}")
             continue
 
-        print("\n发现一条建议规则:")
+        print("\n发现一条建议规则：")
         print(json.dumps(rule, ensure_ascii=False, indent=2))
 
         choice = input("是否加入规则库？[y/N]: ").strip().lower()
@@ -112,7 +113,7 @@ def main():
     print("\n[+] 审核完成")
     print(f"[+] 新增规则数量: {len(new_rules)}")
     print(f"[+] 已生成审核后规则文件: {OUTPUT_FILE}")
-    print("[!] 注意：目前还没有覆盖 rules.json,需要你确认后手动替换")
+    print("[!] 注意：目前还没有覆盖 rules.json，需要你确认后手动替换")
 
 
 if __name__ == "__main__":
