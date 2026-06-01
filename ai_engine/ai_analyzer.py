@@ -82,6 +82,18 @@ def build_prompt(log):
 19. 不要把普通 session、token、authorization 作为直接拦截规则。
 20. 只有明确 WebShell 工具特征、危险函数、自定义命令头、异常编码载荷时才建议生成 Cookie/Header 规则。
 21. 如果只是长 Base64 或疑似编码内容，除非置信度很高，否则 auto_apply 应为 false。
+22. suspicious.log 可能包含 samples 字段，格式类似：
+    "samples": [
+      {{
+        "area": "cookie",
+        "reason": "cookie_webshell_keyword",
+        "sample": "payload=Godzilla"
+      }}
+    ]
+    请优先参考 samples 中的 area、reason、sample 来判断攻击特征实际出现的位置和上下文。
+23. 如果 samples 显示攻击特征在 Cookie 中，优先生成 target = "cookie"；如果在 Header 中，优先生成 target = "headers"；如果在 POST Body 中，优先生成 target = "post_body"。
+24. 不要基于完整 session、token、authorization、jwt、auth 等敏感值生成规则；对 sample 中被 [MASKED] 脱敏的值，不要生成针对具体值的规则。
+25. 可以基于字段名 + 攻击模式生成低误报规则，例如 payload=[A-Za-z0-9+/=]{{40,}}、X-Payload、Godzilla|Behinder|AntSword，但不要生成过于宽泛的规则。
 
 可疑日志如下：
 
@@ -146,6 +158,7 @@ def analyze_with_ai(log):
 
     result["source_uri"] = log.get("uri", "")
     result["source_reasons"] = log.get("reasons", [])
+    result["source_samples"] = log.get("samples", [])
     result["source_risk_score"] = log.get("risk_score", 0)
     result["source_ip"] = log.get("ip", "")
     result["source_user_agent"] = log.get("user_agent", "")
