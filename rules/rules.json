@@ -322,5 +322,41 @@
         "action": "block",
         "level": "medium",
         "description": "检测 POST 请求体中的常见 WebShell 管理工具参数或标识"
+    },
+    {
+        "id": 1037,
+        "name": "detect_cookie_webshell_keyword",
+        "target": "cookie",
+        "pattern": "Godzilla|Behinder|AntSword|rebeyond",
+        "action": "block",
+        "level": "high",
+        "description": "检测 Cookie 中的常见 WebShell 管理工具关键词"
+    },
+    {
+        "id": 1038,
+        "name": "detect_cookie_php_dangerous_function",
+        "target": "cookie",
+        "pattern": "eval\\(|system\\(|base64_decode\\(",
+        "action": "block",
+        "level": "high",
+        "description": "检测 Cookie 中的 PHP 危险函数特征"
+    },
+    {
+        "id": 1039,
+        "name": "detect_header_webshell_keyword",
+        "target": "headers",
+        "pattern": "Godzilla|Behinder|AntSword|rebeyond",
+        "action": "block",
+        "level": "high",
+        "description": "检测请求头中的常见 WebShell 管理工具关键词"
+    },
+    {
+        "id": 1040,
+        "name": "detect_header_custom_command",
+        "target": "headers",
+        "pattern": "X-Cmd|X-Payload|X-Command",
+        "action": "block",
+        "level": "high",
+        "description": "检测请求头中的可疑自定义命令字段"
     }
 ]
