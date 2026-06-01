@@ -132,3 +132,16 @@ tail -n 30 /root/waf-demo/logs/error.log
 curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
 curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
 curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
+
+# 连续触发静态规则，应该累计 IP 风险次数
+curl -i "http://127.0.0.1:8080/?cmd=whoami"
+curl -i "http://127.0.0.1:8080/?cmd=whoami"
+curl -i "http://127.0.0.1:8080/?cmd=whoami"
+
+# 触发 3 次后，普通请求也应该被临时封禁
+curl -i "http://127.0.0.1:8080/"
+
+# 查看日志
+tail -n 50 /root/waf-demo/logs/error.log
+tail -n 50 /root/waf-demo/logs/waf.log
+tail -n 50 /root/waf-demo/logs/suspicious.log

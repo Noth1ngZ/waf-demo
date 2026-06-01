@@ -12,6 +12,8 @@ local RISK_COUNT_LIMIT = 3
 local RISK_COUNT_WINDOW = 300
 local IP_BLOCK_TIME = 600
 
+local record_high_risk_ip
+
 
 local function read_file(path)
     local file = io.open(path, "r")
@@ -117,6 +119,14 @@ local function block_request(rule, post_body)
 
     write_json_log(waf_log_file, log_data)
 
+    -- 静态规则命中也累计 IP 风险次数。
+    -- rule.id = 9100 表示该 IP 已经被临时封禁后的拦截，不再重复累计。
+    -- rule.id = 9200 的高风险评分拦截已在主流程中完成累计，避免重复计数。
+    if rule.id ~= 9100 and rule.id ~= 9200 and record_high_risk_ip then
+        local reasons = {"static_rule_hit:" .. tostring(rule.name)}
+        record_high_risk_ip(80, reasons, post_body)
+    end
+
     ngx.log(
         ngx.ERR,
         "WAF BLOCK: rule_id=", rule.id,
@@ -165,7 +175,7 @@ local function write_ip_risk_log(ip, count, score, reasons, post_body)
 
     ngx.log(
         ngx.ERR,
-        "WAF IP RISK: ip=", ip,
+        "WAF IP RISK COUNT: ip=", ip,
         ", count=", count,
         ", score=", score,
         ", reasons=", table.concat(reasons, ","),
@@ -188,7 +198,7 @@ local function write_ip_block_log(ip, count, score, reasons, post_body)
 
     ngx.log(
         ngx.ERR,
-        "WAF IP TEMP BLOCK: ip=", ip,
+        "WAF IP BLOCK: ip=", ip,
         ", count=", count,
         ", score=", score,
         ", block_time=", IP_BLOCK_TIME,
@@ -218,7 +228,7 @@ local function check_ip_blocked(post_body)
 end
 
 
-local function record_high_risk_ip(score, reasons, post_body)
+record_high_risk_ip = function(score, reasons, post_body)
     if score < HIGH_RISK_SCORE then
         return false, 0
     end
