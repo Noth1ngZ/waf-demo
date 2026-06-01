@@ -286,5 +286,41 @@
         "action": "block",
         "level": "high",
         "description": "检测参数值中是否包含 Java WebShell 常见命令执行类调用"
+    },
+    {
+        "id": 1033,
+        "name": "detect_post_body_command",
+        "target": "post_body",
+        "pattern": "cmd=|whoami|uname|id|pwd|ifconfig|ipconfig|netstat",
+        "action": "block",
+        "level": "high",
+        "description": "检测 POST 请求体中的命令执行相关特征"
+    },
+    {
+        "id": 1034,
+        "name": "detect_post_body_sensitive_file",
+        "target": "post_body",
+        "pattern": "/etc/passwd|/etc/shadow|/root/.ssh|id_rsa",
+        "action": "block",
+        "level": "high",
+        "description": "检测 POST 请求体中的敏感文件读取特征"
+    },
+    {
+        "id": 1035,
+        "name": "detect_post_body_php_function",
+        "target": "post_body",
+        "pattern": "eval\\(|assert\\(|system\\(|shell_exec\\(|passthru\\(|base64_decode\\(",
+        "action": "block",
+        "level": "high",
+        "description": "检测 POST 请求体中的 PHP 危险函数特征"
+    },
+    {
+        "id": 1036,
+        "name": "detect_post_body_webshell_param",
+        "target": "post_body",
+        "pattern": "pass=|password=|payload=|rebeyond|Godzilla|Behinder|AntSword",
+        "action": "block",
+        "level": "medium",
+        "description": "检测 POST 请求体中的常见 WebShell 管理工具参数或标识"
     }
 ]
