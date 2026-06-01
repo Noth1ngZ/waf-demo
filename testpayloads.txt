@@ -168,3 +168,20 @@ curl -i -H "X-Token: Y21kPXdob2FtaQ1234567890ABCDEFGH==" "http://127.0.0.1:8080/
 tail -n 30 /root/waf-demo/logs/waf.log
 tail -n 30 /root/waf-demo/logs/suspicious.log
 tail -n 30 /root/waf-demo/logs/error.log
+
+# Cookie 中出现 WebShell 工具特征，应该拦截，并在 waf.log 中记录 matched_sample
+curl -i -H "Cookie: session=abc123; payload=Godzilla" "http://127.0.0.1:8080/"
+
+# Header 中出现 WebShell 工具特征，应该拦截，并在 waf.log 中记录 matched_sample
+curl -i -H "X-Payload: Behinder" "http://127.0.0.1:8080/"
+
+# Header 中出现长编码内容，应该进入 suspicious.log，并记录 samples
+curl -i -H "X-Token: Y21kPXdob2FtaQ1234567890ABCDEFGH==" "http://127.0.0.1:8080/api.php"
+
+# Cookie 中带有 session，日志中应该脱敏，不应完整记录 session 值
+curl -i -H "Cookie: session=very_secret_session_value; payload=Godzilla" "http://127.0.0.1:8080/"
+
+# 查看日志
+tail -n 30 /root/waf-demo/logs/waf.log
+tail -n 30 /root/waf-demo/logs/suspicious.log
+tail -n 30 /root/waf-demo/logs/error.log
