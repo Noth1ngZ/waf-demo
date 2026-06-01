@@ -11,7 +11,7 @@ REJECTED_FILE = "/root/waf-demo/ai_engine/rejected_rules.json"
 
 BACKUP_DIR = "/root/waf-demo/rules/backups"
 
-ALLOW_TARGETS = {"args_name", "args_value", "uri", "user_agent", "post_body"}
+ALLOW_TARGETS = {"args_name", "args_value", "uri", "user_agent", "post_body", "cookie", "headers"}
 ALLOW_LEVELS = {"low", "medium", "high"}
 
 DANGEROUS_BROAD_PATTERNS = [

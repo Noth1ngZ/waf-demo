@@ -94,8 +94,10 @@ local function get_post_body()
 end
 
 
-local function get_request_info(post_body)
+local function get_request_info(post_body, cookie, headers)
     post_body = post_body or ""
+    cookie = cookie or ""
+    headers = headers or ""
 
     return {
         time = ngx.localtime(),
@@ -104,13 +106,15 @@ local function get_request_info(post_body)
         uri = ngx.var.request_uri or "",
         host = ngx.var.host or "",
         user_agent = ngx.var.http_user_agent or "",
-        post_body_length = string.len(post_body)
+        post_body_length = string.len(post_body),
+        cookie_length = string.len(cookie or ""),
+        headers_length = string.len(headers or "")
     }
 end
 
 
-local function block_request(rule, post_body)
-    local log_data = get_request_info(post_body)
+local function block_request(rule, post_body, cookie, headers)
+    local log_data = get_request_info(post_body, cookie, headers)
 
     log_data.rule_id = rule.id
     log_data.rule_name = rule.name
@@ -124,7 +128,7 @@ local function block_request(rule, post_body)
     -- rule.id = 9200 的高风险评分拦截已在主流程中完成累计，避免重复计数。
     if rule.id ~= 9100 and rule.id ~= 9200 and record_high_risk_ip then
         local reasons = {"static_rule_hit:" .. tostring(rule.name)}
-        record_high_risk_ip(80, reasons, post_body)
+        record_high_risk_ip(80, reasons, post_body, cookie, headers)
     end
 
     ngx.log(
@@ -143,8 +147,8 @@ local function block_request(rule, post_body)
 end
 
 
-local function write_suspicious_log(score, reasons, post_body)
-    local log_data = get_request_info(post_body)
+local function write_suspicious_log(score, reasons, post_body, cookie, headers)
+    local log_data = get_request_info(post_body, cookie, headers)
 
     log_data.risk_score = score
     log_data.reasons = reasons
@@ -161,8 +165,8 @@ local function write_suspicious_log(score, reasons, post_body)
 end
 
 
-local function write_ip_risk_log(ip, count, score, reasons, post_body)
-    local log_data = get_request_info(post_body)
+local function write_ip_risk_log(ip, count, score, reasons, post_body, cookie, headers)
+    local log_data = get_request_info(post_body, cookie, headers)
 
     log_data.action = "ip_risk_count"
     log_data.risk_ip = ip
@@ -184,8 +188,8 @@ local function write_ip_risk_log(ip, count, score, reasons, post_body)
 end
 
 
-local function write_ip_block_log(ip, count, score, reasons, post_body)
-    local log_data = get_request_info(post_body)
+local function write_ip_block_log(ip, count, score, reasons, post_body, cookie, headers)
+    local log_data = get_request_info(post_body, cookie, headers)
 
     log_data.action = "ip_temp_block"
     log_data.blocked_ip = ip
@@ -208,7 +212,7 @@ local function write_ip_block_log(ip, count, score, reasons, post_body)
 end
 
 
-local function check_ip_blocked(post_body)
+local function check_ip_blocked(post_body, cookie, headers)
     local ip = ngx.var.remote_addr or ""
     if ip == "" or not ip_risk_dict then
         return false
@@ -220,7 +224,7 @@ local function check_ip_blocked(post_body)
             id = 9100,
             name = "temporary_blocked_ip",
             level = "high"
-        }, post_body)
+        }, post_body, cookie, headers)
         return true
     end
 
@@ -228,7 +232,7 @@ local function check_ip_blocked(post_body)
 end
 
 
-record_high_risk_ip = function(score, reasons, post_body)
+record_high_risk_ip = function(score, reasons, post_body, cookie, headers)
     if score < HIGH_RISK_SCORE then
         return false, 0
     end
@@ -257,7 +261,7 @@ record_high_risk_ip = function(score, reasons, post_body)
         end
     end
 
-    write_ip_risk_log(ip, count, score, reasons, post_body)
+    write_ip_risk_log(ip, count, score, reasons, post_body, cookie, headers)
 
     if count >= RISK_COUNT_LIMIT then
         local ok, set_err = ip_risk_dict:set("blocked_ip:" .. ip, true, IP_BLOCK_TIME)
@@ -266,7 +270,7 @@ record_high_risk_ip = function(score, reasons, post_body)
             return false, count
         end
 
-        write_ip_block_log(ip, count, score, reasons, post_body)
+        write_ip_block_log(ip, count, score, reasons, post_body, cookie, headers)
         return true, count
     end
 
@@ -287,7 +291,7 @@ local function table_value_to_string(value)
 end
 
 
-local function calc_risk_score(args, uri, ua, post_body)
+local function calc_risk_score(args, uri, ua, post_body, cookie, headers)
     local score = 0
     local reasons = {}
 
@@ -370,16 +374,63 @@ local function calc_risk_score(args, uri, ua, post_body)
         end
     end
 
+
+    -- 6. Cookie 可疑特征
+    if cookie and cookie ~= "" then
+        if match_rule(cookie, "Godzilla|Behinder|AntSword|rebeyond") then
+            score = score + 30
+            table.insert(reasons, "cookie_webshell_keyword")
+        end
+
+        if match_rule(cookie, "payload=|pass=|cmd=") then
+            score = score + 25
+            table.insert(reasons, "cookie_suspicious_param")
+        end
+
+        if match_rule(cookie, "[A-Za-z0-9+/=]{30,}") then
+            score = score + 25
+            table.insert(reasons, "cookie_possible_encoded_payload")
+        end
+
+        if match_rule(cookie, "eval\\(|system\\(|base64_decode\\(") then
+            score = score + 40
+            table.insert(reasons, "cookie_php_dangerous_function")
+        end
+    end
+
+    -- 7. Header 可疑特征
+    if headers and headers ~= "" then
+        if match_rule(headers, "Godzilla|Behinder|AntSword|rebeyond") then
+            score = score + 30
+            table.insert(reasons, "header_webshell_keyword")
+        end
+
+        if match_rule(headers, "X-Cmd|X-Payload|X-Command") then
+            score = score + 30
+            table.insert(reasons, "suspicious_custom_header")
+        end
+
+        if match_rule(headers, "[A-Za-z0-9+/=]{30,}") then
+            score = score + 25
+            table.insert(reasons, "header_possible_encoded_payload")
+        end
+
+        if match_rule(headers, "Authorization\\s*:\\s*[^\\s]{40,}") then
+            score = score + 20
+            table.insert(reasons, "authorization_long_token")
+        end
+    end
+
     return score, reasons
 end
 
 
-local function check_static_rules(rules, args, uri, ua, post_body)
+local function check_static_rules(rules, args, uri, ua, post_body, cookie, headers)
     for _, rule in ipairs(rules) do
         if rule.target == "args_name" then
             for key, value in pairs(args) do
                 if match_rule(key, rule.pattern) then
-                    block_request(rule, post_body)
+                    block_request(rule, post_body, cookie, headers)
                 end
             end
 
@@ -388,32 +439,57 @@ local function check_static_rules(rules, args, uri, ua, post_body)
                 if type(value) == "table" then
                     for _, v in ipairs(value) do
                         if match_rule(v, rule.pattern) then
-                            block_request(rule, post_body)
+                            block_request(rule, post_body, cookie, headers)
                         end
                     end
                 else
                     if match_rule(value, rule.pattern) then
-                        block_request(rule, post_body)
+                        block_request(rule, post_body, cookie, headers)
                     end
                 end
             end
 
         elseif rule.target == "uri" then
             if match_rule(uri, rule.pattern) then
-                block_request(rule, post_body)
+                block_request(rule, post_body, cookie, headers)
             end
 
         elseif rule.target == "user_agent" then
             if match_rule(ua, rule.pattern) then
-                block_request(rule, post_body)
+                block_request(rule, post_body, cookie, headers)
             end
 
         elseif rule.target == "post_body" then
             if match_rule(post_body, rule.pattern) then
-                block_request(rule, post_body)
+                block_request(rule, post_body, cookie, headers)
+            end
+
+        elseif rule.target == "cookie" then
+            if match_rule(cookie, rule.pattern) then
+                block_request(rule, post_body, cookie, headers)
+            end
+
+        elseif rule.target == "headers" then
+            if match_rule(headers, rule.pattern) then
+                block_request(rule, post_body, cookie, headers)
             end
         end
     end
+end
+
+
+local function get_headers_string()
+    local headers_table = ngx.req.get_headers()
+    local parts = {}
+
+    for key, value in pairs(headers_table) do
+        local header_value = table_value_to_string(value)
+        table.insert(parts, tostring(key) .. ": " .. header_value)
+    end
+
+    table.sort(parts)
+
+    return table.concat(parts, "\n")
 end
 
 
@@ -424,36 +500,38 @@ local rules = load_rules()
 local args = ngx.req.get_uri_args()
 local uri = ngx.var.request_uri or ""
 local ua = ngx.var.http_user_agent or ""
+local cookie = ngx.var.http_cookie or ""
+local headers = get_headers_string()
 local post_body = get_post_body()
 
 -- 第一层：先检查当前 IP 是否已经被临时封禁
-check_ip_blocked(post_body)
+check_ip_blocked(post_body, cookie, headers)
 
 -- 第二层：静态规则强拦截
-check_static_rules(rules, args, uri, ua, post_body)
+check_static_rules(rules, args, uri, ua, post_body, cookie, headers)
 
 -- 第三层：未命中强拦截规则时，进行风险评分
-local score, reasons = calc_risk_score(args, uri, ua, post_body)
+local score, reasons = calc_risk_score(args, uri, ua, post_body, cookie, headers)
 
 if score >= BLOCK_SCORE then
-    record_high_risk_ip(score, reasons, post_body)
-    write_suspicious_log(score, reasons, post_body)
+    record_high_risk_ip(score, reasons, post_body, cookie, headers)
+    write_suspicious_log(score, reasons, post_body, cookie, headers)
     block_request({
         id = 9200,
         name = "high_risk_score_block",
         level = "high"
-    }, post_body)
+    }, post_body, cookie, headers)
 elseif score >= HIGH_RISK_SCORE then
-    local blocked_now = record_high_risk_ip(score, reasons, post_body)
-    write_suspicious_log(score, reasons, post_body)
+    local blocked_now = record_high_risk_ip(score, reasons, post_body, cookie, headers)
+    write_suspicious_log(score, reasons, post_body, cookie, headers)
 
     if blocked_now then
         block_request({
             id = 9100,
             name = "temporary_blocked_ip",
             level = "high"
-        }, post_body)
+        }, post_body, cookie, headers)
     end
 elseif score >= 30 then
-    write_suspicious_log(score, reasons, post_body)
+    write_suspicious_log(score, reasons, post_body, cookie, headers)
 end

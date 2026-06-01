@@ -34,7 +34,7 @@ def build_rule_from_suggestion(suggestion, rule_id):
     if not suggest_rule:
         return None
 
-    allow_targets = {"args_name", "args_value", "uri", "user_agent", "post_body"}
+    allow_targets = {"args_name", "args_value", "uri", "user_agent", "post_body", "cookie", "headers"}
 
     target = suggest_rule.get("target")
     pattern = suggest_rule.get("pattern")

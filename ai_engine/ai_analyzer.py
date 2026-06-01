@@ -61,6 +61,8 @@ def build_prompt(log):
    - uri
    - user_agent
    - post_body
+   - cookie
+   - headers
 6. action 固定为 "block"。
 7. level 只能是：
    - low
@@ -74,7 +76,12 @@ def build_prompt(log):
 13. 如果只是普通业务参数名，例如 file、url、data，不要直接生成强拦截规则。
 14. 优先生成低误报规则，例如明确的命令执行、WebShell、敏感文件、SQL 时间盲注、POST Body 中的 WebShell 通信特征。
 15. 如果可疑原因与 POST 请求体相关，例如 post_body_command_keyword、post_body_sensitive_file、post_body_possible_encoded_payload、post_body_php_dangerous_function、post_body_webshell_keyword，优先考虑生成 target 为 post_body 的规则。
-16. 如果只是长 Base64 或疑似编码内容，除非置信度很高，否则 auto_apply 应为 false。
+16. 如果可疑原因与 Cookie 相关，例如 cookie_webshell_keyword、cookie_possible_encoded_payload、cookie_php_dangerous_function，优先考虑生成 target 为 cookie 的规则。
+17. 如果可疑原因与 Header 相关，例如 header_webshell_keyword、header_possible_encoded_payload、suspicious_custom_header，优先考虑生成 target 为 headers 的规则。
+18. 不要生成过于宽泛的 Cookie/Header 规则。
+19. 不要把普通 session、token、authorization 作为直接拦截规则。
+20. 只有明确 WebShell 工具特征、危险函数、自定义命令头、异常编码载荷时才建议生成 Cookie/Header 规则。
+21. 如果只是长 Base64 或疑似编码内容，除非置信度很高，否则 auto_apply 应为 false。
 
 可疑日志如下：
 
@@ -143,6 +150,8 @@ def analyze_with_ai(log):
     result["source_ip"] = log.get("ip", "")
     result["source_user_agent"] = log.get("user_agent", "")
     result["source_post_body_length"] = log.get("post_body_length", 0)
+    result["source_cookie_length"] = log.get("cookie_length", 0)
+    result["source_headers_length"] = log.get("headers_length", 0)
     result["analyze_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return result
