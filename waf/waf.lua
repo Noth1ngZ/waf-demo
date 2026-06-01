@@ -4,6 +4,14 @@ local rule_file = "/root/waf-demo/rules/rules.json"
 local waf_log_file = "/root/waf-demo/logs/waf.log"
 local suspicious_log_file = "/root/waf-demo/logs/suspicious.log"
 
+local ip_risk_dict = ngx.shared.waf_ip_risk
+
+local HIGH_RISK_SCORE = 60
+local BLOCK_SCORE = 80
+local RISK_COUNT_LIMIT = 3
+local RISK_COUNT_WINDOW = 300
+local IP_BLOCK_TIME = 600
+
 
 local function read_file(path)
     local file = io.open(path, "r")
@@ -140,6 +148,119 @@ local function write_suspicious_log(score, reasons, post_body)
         ", reasons=", table.concat(reasons, ","),
         ", uri=", ngx.var.request_uri
     )
+end
+
+
+local function write_ip_risk_log(ip, count, score, reasons, post_body)
+    local log_data = get_request_info(post_body)
+
+    log_data.action = "ip_risk_count"
+    log_data.risk_ip = ip
+    log_data.risk_count = count
+    log_data.risk_score = score
+    log_data.reasons = reasons
+    log_data.risk_count_window = RISK_COUNT_WINDOW
+
+    write_json_log(waf_log_file, log_data)
+
+    ngx.log(
+        ngx.ERR,
+        "WAF IP RISK: ip=", ip,
+        ", count=", count,
+        ", score=", score,
+        ", reasons=", table.concat(reasons, ","),
+        ", uri=", ngx.var.request_uri
+    )
+end
+
+
+local function write_ip_block_log(ip, count, score, reasons, post_body)
+    local log_data = get_request_info(post_body)
+
+    log_data.action = "ip_temp_block"
+    log_data.blocked_ip = ip
+    log_data.risk_count = count
+    log_data.risk_score = score
+    log_data.reasons = reasons
+    log_data.block_time = IP_BLOCK_TIME
+
+    write_json_log(waf_log_file, log_data)
+
+    ngx.log(
+        ngx.ERR,
+        "WAF IP TEMP BLOCK: ip=", ip,
+        ", count=", count,
+        ", score=", score,
+        ", block_time=", IP_BLOCK_TIME,
+        ", reasons=", table.concat(reasons, ","),
+        ", uri=", ngx.var.request_uri
+    )
+end
+
+
+local function check_ip_blocked(post_body)
+    local ip = ngx.var.remote_addr or ""
+    if ip == "" or not ip_risk_dict then
+        return false
+    end
+
+    local blocked = ip_risk_dict:get("blocked_ip:" .. ip)
+    if blocked then
+        block_request({
+            id = 9100,
+            name = "temporary_blocked_ip",
+            level = "high"
+        }, post_body)
+        return true
+    end
+
+    return false
+end
+
+
+local function record_high_risk_ip(score, reasons, post_body)
+    if score < HIGH_RISK_SCORE then
+        return false, 0
+    end
+
+    local ip = ngx.var.remote_addr or ""
+    if ip == "" then
+        ngx.log(ngx.ERR, "WAF IP RISK ERROR: remote_addr is empty")
+        return false, 0
+    end
+
+    if not ip_risk_dict then
+        ngx.log(ngx.ERR, "WAF IP RISK ERROR: shared dict waf_ip_risk is unavailable")
+        return false, 0
+    end
+
+    local risk_key = "risk_count:" .. ip
+    local ok, add_err = ip_risk_dict:add(risk_key, 1, RISK_COUNT_WINDOW)
+    local count = 1
+
+    if not ok then
+        local err
+        count, err = ip_risk_dict:incr(risk_key, 1)
+        if not count then
+            ngx.log(ngx.ERR, "WAF IP RISK ERROR: failed to increment risk count for ip=", ip, ", add_err=", add_err, ", incr_err=", err)
+            return false, 0
+        end
+    end
+
+    write_ip_risk_log(ip, count, score, reasons, post_body)
+
+    if count >= RISK_COUNT_LIMIT then
+        local ok, set_err = ip_risk_dict:set("blocked_ip:" .. ip, true, IP_BLOCK_TIME)
+        if not ok then
+            ngx.log(ngx.ERR, "WAF IP RISK ERROR: failed to block ip=", ip, ", err=", set_err)
+            return false, count
+        end
+
+        write_ip_block_log(ip, count, score, reasons, post_body)
+        return true, count
+    end
+
+    return false, count
 end
 
 
@@ -295,13 +416,34 @@ local uri = ngx.var.request_uri or ""
 local ua = ngx.var.http_user_agent or ""
 local post_body = get_post_body()
 
--- 第一层：静态规则强拦截
+-- 第一层：先检查当前 IP 是否已经被临时封禁
+check_ip_blocked(post_body)
+
+-- 第二层：静态规则强拦截
 check_static_rules(rules, args, uri, ua, post_body)
 
--- 第二层：未命中强拦截规则时，进行风险评分
+-- 第三层：未命中强拦截规则时，进行风险评分
 local score, reasons = calc_risk_score(args, uri, ua, post_body)
 
--- 30 分以上：记录为可疑请求，但不直接拦截
-if score >= 30 then
+if score >= BLOCK_SCORE then
+    record_high_risk_ip(score, reasons, post_body)
+    write_suspicious_log(score, reasons, post_body)
+    block_request({
+        id = 9200,
+        name = "high_risk_score_block",
+        level = "high"
+    }, post_body)
+elseif score >= HIGH_RISK_SCORE then
+    local blocked_now = record_high_risk_ip(score, reasons, post_body)
+    write_suspicious_log(score, reasons, post_body)
+
+    if blocked_now then
+        block_request({
+            id = 9100,
+            name = "temporary_blocked_ip",
+            level = "high"
+        }, post_body)
+    end
+elseif score >= 30 then
     write_suspicious_log(score, reasons, post_body)
 end

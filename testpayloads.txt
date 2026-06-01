@@ -110,3 +110,25 @@ curl -i -X POST "http://127.0.0.1:8080/" -d "a=base64_decode(test)"
 
 # POST Body 疑似编码载荷，可能进入 suspicious.log
 curl -i -X POST "http://127.0.0.1:8080/" -d "data=Y21kPXdob2FtaQ1234567890ABCDEFGH=="
+
+# IP 风险累计与临时封禁测试
+# 正常请求，应该 200
+curl -i "http://127.0.0.1:8080/"
+
+# 高风险 POST 请求，风险分约 60，连续 3 次后触发 IP 临时封禁
+curl -i -X POST "http://127.0.0.1:8080/" -d "payload=Y21kPXdob2FtaQ1234567890ABCDEFGH=="
+curl -i -X POST "http://127.0.0.1:8080/" -d "payload=Y21kPXdob2FtaQ1234567890ABCDEFGH=="
+curl -i -X POST "http://127.0.0.1:8080/" -d "payload=Y21kPXdob2FtaQ1234567890ABCDEFGH=="
+
+# IP 被封禁后，普通请求也应该 403
+curl -i "http://127.0.0.1:8080/"
+
+# 查看日志
+tail -n 30 /root/waf-demo/logs/waf.log
+tail -n 30 /root/waf-demo/logs/suspicious.log
+tail -n 30 /root/waf-demo/logs/error.log
+
+# 备选高风险 POST 请求：通过 URL 参数累计风险，POST Body 保持非静态规则命中，用于验证 IP 累计封禁
+curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
+curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
+curl -i -X POST "http://127.0.0.1:8080/api?payload=Y21kPXdob2FtaQ1234567890ABCDEFGH==" -d "name=hello"
